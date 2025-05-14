@@ -216,6 +216,55 @@ def build_tree_from_data(data, parent=""):
     
     return current_id
 
+def calculate_selected_duration():
+    """计算选中项目的总时长"""
+    selected_items = tree.selection()
+    if not selected_items:
+        selection_label.config(text="未选中任何项目")
+        return
+    
+    total_duration = 0
+    selected_files_count = 0
+    selected_dirs_count = 0
+    
+    for item_id in selected_items:
+        # 检查是否为文件
+        item_text = tree.item(item_id, "text")
+        item_values = tree.item(item_id, "values")
+        parent_id = tree.parent(item_id)
+        
+        # 如果有父节点且值包含时间，则可能是文件
+        if parent_id and item_values and item_values[0]:
+            try:
+                # 尝试从文件节点的数据中获取时长
+                time_str = item_values[0]
+                # 解析时间字符串
+                hours, minutes, seconds = 0, 0, 0
+                if "时" in time_str:
+                    hours = int(time_str.split("时")[0])
+                    time_str = time_str.split("时")[1]
+                if "分" in time_str:
+                    minutes = int(time_str.split("分")[0])
+                    time_str = time_str.split("分")[1]
+                if "秒" in time_str:
+                    seconds = int(time_str.split("秒")[0])
+                
+                duration = hours * 3600 + minutes * 60 + seconds
+                total_duration += duration
+                selected_files_count += 1
+            except:
+                # 如果解析失败，可能是目录
+                selected_dirs_count += 1
+        else:
+            selected_dirs_count += 1
+    
+    # 显示结果
+    selection_text = f"已选择: {selected_files_count}个文件"
+    if selected_dirs_count > 0:
+        selection_text += f", {selected_dirs_count}个目录"
+    selection_text += f" | 选中视频总时长: {format_time(total_duration)}"
+    selection_label.config(text=selection_text)
+
 # 创建主窗口
 root = tk.Tk()
 root.title("视频时长统计工具")
@@ -245,8 +294,8 @@ status_label.pack(side="left", padx=10)
 frame_tree = tk.Frame(root)
 frame_tree.pack(fill="both", expand=True, padx=10, pady=5)
 
-# 设置树的列
-tree = ttk.Treeview(frame_tree)
+# 设置树的列，启用多选功能
+tree = ttk.Treeview(frame_tree, selectmode="extended")
 tree["columns"] = ("length")
 tree.column("#0", width=400, minwidth=200)
 tree.column("length", width=150, minwidth=100, anchor="center")
@@ -262,8 +311,17 @@ vsb.pack(side="right", fill="y")
 hsb.pack(side="bottom", fill="x")
 tree.pack(fill="both", expand=True)
 
+# 选中项目信息区域
+selection_frame = tk.Frame(root, pady=5, padx=10)
+selection_frame.pack(fill="x")
+selection_label = tk.Label(selection_frame, text="未选中任何项目", anchor="w")
+selection_label.pack(fill="x")
+
+# 绑定选择事件
+tree.bind("<<TreeviewSelect>>", lambda e: calculate_selected_duration())
+
 # 说明标签
-help_text = "说明：目录旁显示的是该目录（包含子目录）所有视频的总时长。可以保存和加载统计结果。"
+help_text = "说明：目录旁显示的是该目录（包含子目录）所有视频的总时长。可以保存和加载统计结果。选中一个或多个视频可以查看选中项目的总时长。"
 help_label = tk.Label(root, text=help_text, pady=5)
 help_label.pack(side="bottom", fill="x")
 
